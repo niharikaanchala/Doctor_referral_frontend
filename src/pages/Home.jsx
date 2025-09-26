@@ -38,8 +38,9 @@ const Home = () => {
       <section className="hero__section py-20 bg-gray-50">
   <div className="container text-center">
     <h1 className="text-4xl md:text-6xl font-extrabold text-gray-900 leading-tight">
-      Find the right doctor. Book in minutes. Get smarter care.
+      Find the right doctor.
     </h1>
+    <h3 className="mt-4 text-[25px]"> Book in minutes. Get smarter care.</h3>
     <p className="mt-4 text-lg text-gray-600">
       AI-assisted booking & referrals for faster, transparent healthcare.
     </p>
@@ -68,14 +69,14 @@ const Home = () => {
 
         <section>
           <div className="container">
-            <div className="lg:w-[470px] mx-auto ">
+            <div className="lg:w-[550px] mx-auto ">
               <h2 className="heading text-center">
                 Providing the best medical services
               </h2>
-              <p className="text__para text-center">
-                World-class care for everyone . Our health System offers
-                unmatched, expert health care.
-              </p>
+            <p className="text__para text-center">
+  Compassionate, expert care for every patient. Our network provides advanced treatments and personalized support to help you stay healthy.
+</p>
+
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 lg:gap-[30px] mt-[30px] lg:mt-[55px] ">
@@ -251,8 +252,9 @@ const Home = () => {
 
         <section>
           <div className="container">
-            <div className="xl:w-[470px] mx-auto ">
-              <h2 className="heading text-center">Our Great Doctors</h2>
+            <div className="xl:w-[550px] mx-auto ">
+              <h2 className="heading text-center">Meet Our Top Specialists</h2>
+
               <p className="text__para text-center">
                 World-class care for everyone . Our health System offers
                 unmatched, expert health care.
@@ -358,7 +360,7 @@ const Home = () => {
 
         <section>
           <div className="container">
-            <div className="xl:w-[470px] mx-auto ">
+            <div className="xl:w-[500px] mx-auto ">
               <h2 className="heading text-center">What our patients Say</h2>
               <p className="text__para text-center">
                 World-class care for everyone . Our health System offers
