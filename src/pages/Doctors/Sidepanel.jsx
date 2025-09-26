@@ -9,17 +9,22 @@ import { useContext } from "react";
 
 const Sidepanel = ({ doctorId, ticketPrice, timeSlots }) => {
 
-  const { role } = useContext(authContext)
+  const { role ,user} = useContext(authContext)
 
   const navigate = useNavigate();
-  const navigateBooking = (doctorId) => {
-    if (role === 'patient') {
-      navigate(`/doctors/${doctorId}/book`)
+const handleBookingClick = () => {
+    if (!user) {
+      toast.error("Please login first");
+      return;
     }
-    else {
-      toast.error("not authorized for booking");
+    if (role === "doctor") {
+      toast.error("Doctors can’t book appointments");
+      return;
     }
-  }
+    if (role === "patient") {
+      navigate(`/doctors/${doctorId}/book`);
+    }
+  };
   return (
     <div className="shadow-panelShadow p-5 pb-8 lg:p-5 rounded-md">
       <div className="flex items-center justify-between mb-8">
@@ -56,12 +61,12 @@ const Sidepanel = ({ doctorId, ticketPrice, timeSlots }) => {
         Book Appointment
       </button> */}
       {
-        role === "patient" ? (<Link
-          to={`/doctors/${doctorId}/book`}
+        role !== "doctor" ? (<button
+         onClick={handleBookingClick         }
           className="btn m-10 px-2 w-full rounded-md"
         >
           Book Appointment
-        </Link>) : ""}
+        </button>) : ""}
     </div>
 
 
