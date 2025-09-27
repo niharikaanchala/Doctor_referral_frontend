@@ -95,7 +95,7 @@ const DoctorDashboard = () => {
         {/* Recent Patients Card */}
         <div className="lg:col-span-2 bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
           <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200 px-6 py-4">
-            <h3 className="text-lg font-semibold text-gray-900">Recent Appointements (14)</h3>
+            <h3 className="text-lg font-semibold text-gray-900">Appointments Today (8)</h3>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm text-gray-600">
