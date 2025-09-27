@@ -29,7 +29,7 @@ const handleBookingClick = () => {
   <div className="shadow-panelShadow p-6 lg:p-6 rounded-xl bg-white">
     {/* Ticket Price Section */}
     <div className="flex items-center justify-between mb-6 border-b pb-4">
-      <p className="text-lg font-semibold text-gray-700">consultation fee</p>
+      <p className="text-lg font-semibold text-gray-700">Consultation Fee</p>
       <span className="text-xl font-bold text-primaryColor">{ticketPrice} USD</span>
     </div>
 
