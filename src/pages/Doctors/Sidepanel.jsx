@@ -14,7 +14,7 @@ const Sidepanel = ({ doctorId, ticketPrice, timeSlots }) => {
   const navigate = useNavigate();
 const handleBookingClick = () => {
     if (!user) {
-      toast.error("Please login first");
+      navigate("/login")
       return;
     }
     if (role === "doctor") {
