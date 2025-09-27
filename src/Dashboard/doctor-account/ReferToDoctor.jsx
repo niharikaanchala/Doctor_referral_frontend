@@ -27,7 +27,7 @@ const ReferToDoctor = ({ bookingId, onClose, onReferSuccess }) => {
             email: "sarah.johnson@medicalcenter.com",
             phone: "+1-555-0101",
             photo: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150&h=150&fit=crop&crop=face",
-            specialization: "Cardiology",
+            specialization: "Vascular Surgeon",
             hospital: "City General Hospital",
             location: "New York, NY",
             medical_license_number: "MED123456",
