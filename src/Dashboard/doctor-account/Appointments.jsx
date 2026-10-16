@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { FormatDate } from "../../utils/FormatDate.js";
 import { useNavigate } from "react-router-dom";
 import { BASE_URL } from "../../config.js";
@@ -18,6 +18,27 @@ const Appointments = ({ appointments }) => {
 
   const handleRowClick = (bookingId) => {
     navigate(`/bookings/${bookingId}`);
+  };
+
+  const visitsByPatient = useMemo(() => {
+    const grouped = {};
+    (appointments || []).forEach((appointment) => {
+      const patientId = appointment.user?._id;
+      if (!patientId || appointment.status === "cancelled") return;
+      if (!grouped[patientId]) grouped[patientId] = [];
+      grouped[patientId].push(appointment);
+    });
+    return grouped;
+  }, [appointments]);
+
+  const lastPriorVisit = (item) => {
+    const patientId = item.user?._id;
+    if (!patientId) return null;
+    const currentTime = new Date(item.appointmentDate || item.createdAt || 0).getTime();
+    return (visitsByPatient[patientId] || [])
+      .filter((other) => String(other._id) !== String(item._id))
+      .filter((other) => new Date(other.appointmentDate || other.createdAt || 0).getTime() < currentTime)
+      .sort((a, b) => new Date(b.appointmentDate || 0) - new Date(a.appointmentDate || 0))[0] || null;
   };
 
   // Get available time slots when date changes
@@ -327,6 +348,7 @@ const Appointments = ({ appointments }) => {
                 const startingTime = timeSlot.startingTime || 'N/A';
                 const endingTime = timeSlot.endingTime || 'N/A';
                 const appointmentDate = item.appointmentDate ? FormatDate(item.appointmentDate) : 'N/A';
+                const priorVisit = lastPriorVisit(item);
 
                 return (
                   <tr
@@ -351,6 +373,11 @@ const Appointments = ({ appointments }) => {
                             )}
                           </div>
                           <div className="text-gray-500 text-sm">{item.user.email}</div>
+                          {priorVisit && (
+                            <p className="text-xs font-medium text-emerald-700 mt-0.5">
+                              Returning · Last seen {FormatDate(priorVisit.appointmentDate)}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </td>

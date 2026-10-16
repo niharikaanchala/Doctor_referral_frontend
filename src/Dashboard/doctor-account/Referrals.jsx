@@ -1,4 +1,103 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { toast } from 'react-toastify';
+import ReferralCaseView from './ReferralCaseView';
+import {
+  addConditionUpdate,
+  addProgressUpdate,
+  conditionLabel,
+  createReferralCase,
+  declineReferralCase,
+  dischargeReferralCase,
+  getReferralCases,
+  reopenReferralCase,
+  subscribeReferralCases,
+  toReferralTableRow,
+} from '../../utils/referralCases';
+
+const STATUS_CHIP = {
+  referred: "bg-amber-50 text-amber-800",
+  accepted: "bg-blue-50 text-[#0067FF]",
+  under_care: "bg-indigo-50 text-indigo-700",
+  improving: "bg-cyan-50 text-cyan-800",
+  recovered: "bg-emerald-50 text-emerald-700",
+};
+
+const PRIORITY_CHIP = {
+  routine: "text-slate-500",
+  medium: "text-orange-700",
+  high: "text-red-600",
+  urgent: "text-red-700",
+  low: "text-slate-500",
+};
+
+function formatStamp(value) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value).slice(0, 10);
+  return date.toLocaleString(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+}
+
+function ContinuityTable({ rows, role, onOpen, onAccept, onReject }) {
+  const specialist = role === "receiving" ? "Referred by" : "Referred to";
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-400">
+            <th className="py-2 px-3 font-medium">Patient</th>
+            <th className="py-2 px-3 font-medium">Case</th>
+            <th className="py-2 px-3 font-medium">{specialist}</th>
+            <th className="py-2 px-3 font-medium">Status</th>
+            <th className="py-2 px-3 font-medium">Latest update</th>
+            <th className="py-2 px-3 font-medium">Follow-up</th>
+            <th className="py-2 px-3 font-medium"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.length === 0 && (
+            <tr><td colSpan="7" className="px-3 py-8 text-center text-slate-400">No referrals match this view.</td></tr>
+          )}
+          {rows.map((referral) => (
+            <tr key={referral.id} className={`border-b border-slate-100 ${referral.needsAttention ? "bg-amber-50/70" : ""}`}>
+              <td className="py-3 px-3">
+                <button type="button" onClick={() => onOpen(referral)} className="font-medium text-[#0067FF] text-left">{referral.patientName}</button>
+                <p className="text-xs text-slate-400">{referral.patientId}</p>
+              </td>
+              <td className="py-3 px-3 text-slate-700">{referral.caseId}</td>
+              <td className="py-3 px-3">
+                <p className="text-slate-800">{role === "receiving" ? referral.referredBy : referral.referredTo}</p>
+                <p className="text-xs text-slate-400">{role === "receiving" ? referral.referredByDepartment : referral.referredToDepartment}</p>
+              </td>
+              <td className="py-3 px-3">
+                <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CHIP[referral.conditionStatus] || STATUS_CHIP.referred}`}>
+                  {conditionLabel(referral.conditionStatus)}
+                </span>
+                <p className={`text-[11px] mt-1 capitalize ${PRIORITY_CHIP[referral.priority] || "text-slate-500"}`}>{referral.priority === "low" ? "routine" : referral.priority}</p>
+                {referral.needsAttention && <p className="text-[11px] text-amber-700">Needs attention</p>}
+              </td>
+              <td className="py-3 px-3 max-w-[220px]">
+                <p className="text-slate-700 line-clamp-2">{referral.latestNote}</p>
+                <p className="text-[11px] text-slate-400">{formatStamp(referral.latestUpdateAt)}</p>
+              </td>
+              <td className="py-3 px-3 text-slate-600">{referral.followUpDate ? String(referral.followUpDate).slice(0, 10) : "—"}</td>
+              <td className="py-3 px-3">
+                <div className="flex gap-1">
+                  <button type="button" onClick={() => onOpen(referral)} className="px-2.5 py-1 rounded-md bg-[#0067FF] text-white text-xs">{role === "receiving" ? "Update" : "Track"}</button>
+                  {role === "receiving" && referral.conditionStatus === "referred" && !referral.declined && (
+                    <>
+                      <button type="button" onClick={() => onAccept(referral.id)} className="px-2.5 py-1 rounded-md border border-emerald-600 text-emerald-700 text-xs">Accept</button>
+                      <button type="button" onClick={() => onReject(referral.id)} className="px-2.5 py-1 rounded-md border border-red-200 text-red-600 text-xs">Decline</button>
+                    </>
+                  )}
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 const ReferralsPage = () => {
   const [activeTab, setActiveTab] = useState('received'); // 'received', 'sent', or 'network'
@@ -20,6 +119,12 @@ const ReferralsPage = () => {
     priority: 'medium',
     notes: ''
   });
+  const [cases, setCases] = useState(() => getReferralCases());
+  const [openCase, setOpenCase] = useState(null);
+  const [caseQuery, setCaseQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+
+  useEffect(() => subscribeReferralCases(setCases), []);
 
   // Mock data for patients
   const patients = [
@@ -112,10 +217,6 @@ const ReferralsPage = () => {
       state_medical_license_number: 'NY-MED-789',
       qualification: 'MD, Cardiology Board Certified',
       experience: '12 years',
-      commission_percentage: 15,
-      op_consultation_fee: 200,
-      surgical_referral_fee: 500,
-      chronic_fee: 150,
       equipment: ['ECG Machine', 'Echocardiogram', 'Cardiac Monitor'],
       photo: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=150&h=150&fit=crop&crop=face',
       status: 'accepted',
@@ -136,10 +237,6 @@ const ReferralsPage = () => {
       state_medical_license_number: 'MA-MED-456',
       qualification: 'MD, Neurology Specialist',
       experience: '8 years',
-      commission_percentage: 12,
-      op_consultation_fee: 180,
-      surgical_referral_fee: 450,
-      chronic_fee: 120,
       equipment: ['EEG Machine', 'MRI Scanner', 'Nerve Conduction Study'],
       photo: 'https://images.unsplash.com/photo-1594824694996-8b3c4fe43d44?w=150&h=150&fit=crop&crop=face',
       status: 'pending',
@@ -160,10 +257,6 @@ const ReferralsPage = () => {
       state_medical_license_number: 'IL-MED-321',
       qualification: 'MD, Orthopedic Surgery',
       experience: '15 years',
-      commission_percentage: 18,
-      op_consultation_fee: 220,
-      surgical_referral_fee: 600,
-      chronic_fee: 160,
       equipment: ['X-Ray Machine', 'Arthroscopy System', 'Bone Densitometer'],
       photo: 'https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=150&h=150&fit=crop&crop=face',
       status: 'completed',
@@ -184,10 +277,6 @@ const ReferralsPage = () => {
       state_medical_license_number: 'CA-MED-654',
       qualification: 'MD, Dermatology Board Certified',
       experience: '7 years',
-      commission_percentage: 10,
-      op_consultation_fee: 160,
-      surgical_referral_fee: 400,
-      chronic_fee: 110,
       equipment: ['Dermatoscope', 'Laser Therapy', 'Cryotherapy Unit'],
       photo: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150&h=150&fit=crop&crop=face',
       status: 'accepted',
@@ -212,10 +301,6 @@ const ReferralsPage = () => {
       state_medical_license_number: 'NY-MED-889',
       qualification: 'MD, Internal Medicine Board Certified',
       experience: '10 years',
-      commission_percentage: 14,
-      op_consultation_fee: 180,
-      surgical_referral_fee: 450,
-      chronic_fee: 130,
       equipment: ['Blood Analyzer', 'Ultrasound', 'X-Ray'],
       photo: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150&h=150&fit=crop&crop=face',
       status: 'available',
@@ -237,10 +322,6 @@ const ReferralsPage = () => {
       state_medical_license_number: 'MA-MED-556',
       qualification: 'MD, Emergency Medicine Specialist',
       experience: '8 years',
-      commission_percentage: 16,
-      op_consultation_fee: 200,
-      surgical_referral_fee: 500,
-      chronic_fee: 140,
       equipment: ['CT Scanner', 'Defibrillator', 'Trauma Kit'],
       photo: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=150&h=150&fit=crop&crop=face',
       status: 'available',
@@ -262,10 +343,6 @@ const ReferralsPage = () => {
       state_medical_license_number: 'IL-MED-421',
       qualification: 'MD, Pediatrics Board Certified',
       experience: '7 years',
-      commission_percentage: 12,
-      op_consultation_fee: 150,
-      surgical_referral_fee: 350,
-      chronic_fee: 100,
       equipment: ['Pediatric Monitor', 'Vaccine Refrigerator', 'Growth Chart'],
       photo: 'https://images.unsplash.com/photo-1594824694996-8b3c4fe43d44?w=150&h=150&fit=crop&crop=face',
       status: 'available',
@@ -287,10 +364,6 @@ const ReferralsPage = () => {
       state_medical_license_number: 'CA-MED-754',
       qualification: 'MD, General Surgery Board Certified',
       experience: '11 years',
-      commission_percentage: 20,
-      op_consultation_fee: 250,
-      surgical_referral_fee: 700,
-      chronic_fee: 180,
       equipment: ['Operating Microscope', 'Laparoscope', 'Surgical Laser'],
       photo: 'https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=150&h=150&fit=crop&crop=face',
       status: 'available',
@@ -299,149 +372,6 @@ const ReferralsPage = () => {
       reviews: 203
     }
   ];
-
-  // Mock data for referrals sent (referrals you have sent to other doctors)
-  const [referralsSent, setReferralsSent] = useState([
-     {
-      id: 1,
-      patientName: 'Rajesh Kumar',
-      patientId: 'PAT-001',
-      condition: 'hypertension',
-      referredTo: 'Dr. Sarah Johnson',
-      department: 'Vascular Surgeon',
-      dateReferred: '2025-09-27',
-      status: 'pending',
-      priority: 'low',
-      notes: 'Chronic migraines requiring neurological assessment',
-      patientDetails: patients[1],
-      assignedDoctor:"Dr. Ram Kishore Gurajala, MD"
-      
-    },
-    {
-      id: 2,
-      patientName: 'John Smith',
-      patientId: 'PAT-002',
-      condition: 'Migraine',
-      referredTo: 'Dr. Michael Chen',
-      department: 'Cardiology',
-      dateReferred: '2024-01-15',
-      status: 'accepted',
-      priority: 'medium',
-      notes: 'Patient needs cardiac evaluation for hypertension management',
-      patientDetails: patients[0]
-    },
-   
-    {
-      id: 3,
-      patientName: 'Robert Brown',
-      patientId: 'PAT-003',
-      condition: 'Arthritis',
-      referredTo: 'Dr. James Wilson',
-      department: 'Orthopedics',
-      dateReferred: '2024-01-20',
-      status: 'completed',
-      priority: 'medium',
-      notes: 'Joint pain evaluation and treatment plan needed',
-      patientDetails: patients[2]
-    }
-  ]);
-
-  // Mock data for received referrals (patients referred to your doctors)
-  const [receivedReferrals, setReceivedReferrals] = useState([
-    {
-      id: 1,
-      patientName: 'David Lee',
-      patientId: 'PAT-005',
-      condition: 'Chest Pain',
-      referredBy: 'Dr. Amanda White',
-      department: 'General Medicine',
-      dateReferred: '2024-01-16',
-      status: 'pending',
-      priority: 'high',
-      notes: 'Patient experiencing intermittent chest pain with ECG abnormalities',
-      assignedDoctor: 'Dr. Michael Chen',
-      patientDetails: {
-        id: 5,
-        full_name: 'David Lee',
-        email: 'david.lee@email.com',
-        mobile_no: '+1-555-0131',
-        gender: 'Male',
-        age: 52,
-        condition: 'Chest Pain',
-        address: '654 Maple St, Houston, TX',
-        emergency_contact: '+1-555-0132',
-        blood_type: 'O+',
-        allergies: ['Aspirin', 'Peanuts'],
-        medical_history: ['Hypertension', 'High Cholesterol', 'Smoking History'],
-        current_medications: ['Aspirin 81mg', 'Atorvastatin 20mg'],
-        last_visit: '2024-01-16',
-        insurance_provider: 'Blue Shield',
-        insurance_number: 'BS-456789123'
-      }
-    },
-    {
-      id: 2,
-      patientName: 'Jennifer Martinez',
-      patientId: 'PAT-006',
-      condition: 'Arrhythmia',
-      referredBy: 'Dr. Kevin Taylor',
-      department: 'Emergency Medicine',
-      dateReferred: '2024-01-19',
-      status: 'pending',
-      priority: 'urgent',
-      notes: 'Suspected atrial fibrillation, requires cardiac monitoring',
-      assignedDoctor: 'Dr. Emily Rodriguez',
-      patientDetails: {
-        id: 6,
-        full_name: 'Jennifer Martinez',
-        email: 'jennifer.martinez@email.com',
-        mobile_no: '+1-555-0133',
-        gender: 'Female',
-        age: 41,
-        condition: 'Arrhythmia',
-        address: '987 Cedar Ave, Miami, FL',
-        emergency_contact: '+1-555-0134',
-        blood_type: 'A-',
-        allergies: ['Latex', 'Sulfa Drugs'],
-        medical_history: ['Anxiety', 'Obesity', 'Sleep Apnea'],
-        current_medications: ['Metoprolol 25mg', 'Xanax 0.5mg'],
-        last_visit: '2024-01-19',
-        insurance_provider: 'Aetna',
-        insurance_number: 'AET-654987321'
-      }
-    },
-    {
-      id: 3,
-      patientName: 'Thomas Anderson',
-      patientId: 'PAT-007',
-      condition: 'Heart Murmur',
-      referredBy: 'Dr. Rachel Green',
-      department: 'Pediatrics',
-      dateReferred: '2024-01-21',
-      status: 'pending',
-      priority: 'medium',
-      notes: 'New onset heart murmur in pediatric patient',
-      assignedDoctor: 'Dr. James Wilson',
-      patientDetails: {
-        id: 7,
-        full_name: 'Thomas Anderson',
-        email: 'thomas.anderson@email.com',
-        mobile_no: '+1-555-0135',
-        gender: 'Male',
-        age: 8,
-        condition: 'Heart Murmur',
-        address: '321 Birch Ln, Seattle, WA',
-        emergency_contact: '+1-555-0136',
-        blood_type: 'B+',
-        allergies: ['Dairy', 'Eggs'],
-        medical_history: ['Asthma', 'Allergies'],
-        current_medications: ['Albuterol Inhaler', 'Cetirizine 10mg'],
-        last_visit: '2024-01-21',
-        insurance_provider: 'United Health',
-        insurance_number: 'UHC-321654987'
-      }
-    }
-  ]);
 
   // Get unique hospitals for dropdown
   const hospitals = [...new Set(networkDoctors.map(doctor => doctor.hospital))];
@@ -454,6 +384,30 @@ const ReferralsPage = () => {
     doctor.location.toLowerCase().includes(searchTerm.toLowerCase())) &&
     (selectedHospital === '' || doctor.hospital === selectedHospital)
   );
+
+  const referralsSent = cases
+    .filter((item) => (item.lists || []).includes('sent'))
+    .map((item) => toReferralTableRow(item));
+
+  const receivedReferrals = cases
+    .filter((item) => (item.lists || []).includes('received'))
+    .map((item) => toReferralTableRow(item));
+
+  const openRecord = openCase ? cases.find((item) => item.id === openCase.id) || null : null;
+
+  const filterRows = (rows) => {
+    const query = caseQuery.trim().toLowerCase();
+    return rows.filter((row) => {
+      const haystack = `${row.patientName} ${row.caseId} ${row.patientId} ${row.referredTo} ${row.referredBy} ${row.condition}`.toLowerCase();
+      const matchesQuery = !query || haystack.includes(query);
+      const matchesStatus = statusFilter === "all"
+        || (statusFilter === "attention" && row.needsAttention)
+        || row.conditionStatus === statusFilter;
+      return matchesQuery && matchesStatus;
+    });
+  };
+  const visibleSent = filterRows(referralsSent);
+  const visibleReceived = filterRows(receivedReferrals);
 
   const getStatusBadge = (status, priority = null) => {
     const statusConfig = {
@@ -489,24 +443,26 @@ const ReferralsPage = () => {
   };
 
   const handleAcceptReferral = (referralId) => {
-    console.log('Accept referral:', referralId);
-    setReceivedReferrals(prevReferrals => 
-      prevReferrals.map(referral => 
-        referral.id === referralId ? { ...referral, status: 'accepted' } : referral
-      )
-    );
-    alert(`Referral #${referralId} accepted successfully!`);
+    const item = cases.find((entry) => entry.id === referralId);
+    if (!item || item.declined || item.conditionStatus !== 'referred') return;
+    addConditionUpdate(referralId, {
+      authorRole: 'receiving',
+      authorName: item.referredTo?.name || 'Dr. You',
+      status: 'accepted',
+      note: 'Accepted. The referring doctor can follow this from Referrals Sent.',
+    });
+    toast.success('Referral accepted. Both doctors can follow it from this page.');
   };
 
   const handleRejectReferral = (referralId) => {
-    if (window.confirm('Are you sure you want to reject this referral?')) {
-      console.log('Reject referral:', referralId);
-      setReceivedReferrals(prevReferrals => 
-        prevReferrals.map(referral => 
-          referral.id === referralId ? { ...referral, status: 'rejected' } : referral
-        )
-      );
-      alert(`Referral #${referralId} rejected.`);
+    if (window.confirm('Are you sure you want to decline this referral?')) {
+      const item = cases.find((entry) => entry.id === referralId);
+      declineReferralCase(referralId, {
+        authorRole: 'receiving',
+        authorName: item?.referredTo?.name || 'Dr. You',
+        note: 'Declined this referral.',
+      });
+      toast.info('Referral declined. The referring doctor can see it on Referrals Sent.');
     }
   };
 
@@ -533,25 +489,37 @@ const ReferralsPage = () => {
 
   const handleConfirmReferral = () => {
     if (selectedPatient && doctorToRefer) {
-      console.log('Referring patient:', selectedPatient.id, 'to doctor:', doctorToRefer.id);
-      
-      // Add to referrals sent
-      const newReferral = {
-        id: referralsSent.length + 1,
-        patientName: selectedPatient.full_name,
-        patientId: `PAT-00${selectedPatient.id}`,
-        condition: selectedPatient.condition,
-        referredTo: doctorToRefer.full_name,
-        department: doctorToRefer.specialization,
-        dateReferred: new Date().toISOString().split('T')[0],
-        status: 'pending',
+      createReferralCase({
+        reason: `Referred for ${selectedPatient.condition}`,
         priority: 'medium',
-        notes: `Referred for ${selectedPatient.condition}`,
-        patientDetails: selectedPatient
-      };
-      
-      setReferralsSent(prev => [...prev, newReferral]);
-      alert(`Patient ${selectedPatient.full_name} referred to ${doctorToRefer.full_name} successfully!`);
+        summary: `${selectedPatient.full_name} referred for ${selectedPatient.condition}.`,
+        referredBy: { name: 'Dr. You', specialization: 'General Medicine', hospital: 'City Clinic' },
+        referredTo: {
+          id: String(doctorToRefer.id),
+          name: doctorToRefer.full_name,
+          specialization: doctorToRefer.specialization,
+          hospital: doctorToRefer.hospital,
+          photo: doctorToRefer.photo,
+        },
+        patient: {
+          id: `PAT-00${selectedPatient.id}`,
+          name: selectedPatient.full_name,
+          email: selectedPatient.email,
+          phone: selectedPatient.mobile_no,
+          gender: selectedPatient.gender,
+          age: selectedPatient.age,
+          bloodType: selectedPatient.blood_type,
+          address: selectedPatient.address,
+          condition: selectedPatient.condition,
+          allergies: selectedPatient.allergies || [],
+          medicalHistory: selectedPatient.medical_history || [],
+          medications: selectedPatient.current_medications || [],
+          emergencyContact: selectedPatient.emergency_contact,
+        },
+        reports: [],
+        prescriptions: [],
+      });
+      toast.success(`${selectedPatient.full_name} referred to ${doctorToRefer.full_name}. Open the patient name to track the case.`);
       setShowPatientReferralModal(false);
       setSelectedPatient(null);
       setDoctorToRefer(null);
@@ -566,9 +534,8 @@ const ReferralsPage = () => {
   };
 
   // New function to handle patient name click
-  const handlePatientNameClick = (referral) => {
-    setSelectedPatientDetails(referral);
-    setShowPatientDetailsModal(true);
+  const handlePatientNameClick = (referral, role) => {
+    setOpenCase({ id: referral.caseId || referral.id, role });
   };
 
   // Receptionist-specific functions
@@ -1017,28 +984,6 @@ const ReferralsPage = () => {
                     </div>
                   </div>
                 </div>
-
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h4 className="font-semibold text-gray-900 mb-3">Fee Structure</h4>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">OP Consultation:</span>
-                      <span className="font-medium">${doctor.op_consultation_fee}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Surgical Referral:</span>
-                      <span className="font-medium">${doctor.surgical_referral_fee}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Chronic Condition:</span>
-                      <span className="font-medium">${doctor.chronic_fee}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Commission:</span>
-                      <span className="font-medium">{doctor.commission_percentage}%</span>
-                    </div>
-                  </div>
-                </div>
               </div>
 
               <div className="space-y-6">
@@ -1196,8 +1141,8 @@ const ReferralsPage = () => {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Referral Management</h1>
-          <p className="text-gray-600">Manage patient referrals and network doctors</p>
+          <h1 className="text-2xl font-semibold text-slate-900 mb-1">Referral tracking</h1>
+          <p className="text-sm text-slate-500">A referral you send stays in Sent. A referral sent to you stays in Received.</p>
         </div>
 
         {/* Tabs */}
@@ -1247,147 +1192,55 @@ const ReferralsPage = () => {
           </div>
         </div>
 
-        {/* Tab Content */}
-        <div className="bg-white rounded-xl shadow-sm">
-          {activeTab === 'received' && (
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-gray-900">Received Referrals</h2>
-                <div className="flex space-x-3">
-                
-                </div>
-              </div>
+        {activeTab !== "network" && (
+          <div className="bg-white border border-slate-200 rounded-xl mb-4 px-4 py-3 flex flex-col sm:flex-row gap-3">
+            <input
+              value={caseQuery}
+              onChange={(event) => setCaseQuery(event.target.value)}
+              placeholder="Search patient, case ID, or doctor"
+              className="flex-1 rounded-md border border-slate-200 px-3 py-2 text-sm"
+            />
+            <select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value)}
+              className="rounded-md border border-slate-200 px-3 py-2 text-sm bg-white"
+            >
+              <option value="all">All statuses</option>
+              <option value="attention">Needs attention</option>
+              <option value="referred">Referred</option>
+              <option value="accepted">Accepted</option>
+              <option value="under_care">Under care</option>
+              <option value="improving">Improving</option>
+              <option value="recovered">Recovered / Discharged</option>
+            </select>
+          </div>
+        )}
 
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-gray-50 border-b">
-                      <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient</th>
-                      <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Condition</th>
-                      <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Referred By</th>
-                      <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                      <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                      <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {receivedReferrals.map((referral) => (
-                      <tr key={referral.id} className="hover:bg-gray-50 transition-colors duration-150">
-                        <td className="py-4 px-4">
-                          <button
-                            onClick={() => handlePatientNameClick(referral)}
-                            className="text-blue-600 hover:text-blue-800 font-medium text-left"
-                          >
-                            {referral.patientName}
-                          </button>
-                          <p className="text-sm text-gray-500">{referral.patientId}</p>
-                        </td>
-                        <td className="py-4 px-4">
-                          <span className="text-red-600 font-medium">{referral.condition}</span>
-                        </td>
-                        <td className="py-4 px-4">
-                          <div>
-                            <span className="font-medium text-gray-900">{referral.referredBy}</span>
-                            <p className="text-sm text-gray-500">{referral.department}</p>
-                          </div>
-                        </td>
-                        <td className="py-4 px-4 text-gray-600">{referral.dateReferred}</td>
-                        <td className="py-4 px-4">
-                          {getStatusBadge(referral.status, referral.priority)}
-                        </td>
-                        <td className="py-4 px-4">
-                          <div className="flex space-x-2">
-                            {referral.status === 'pending' && (
-                              <>
-                                <button
-                                  onClick={() => handleAcceptReferral(referral.id)}
-                                  className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg transition-colors duration-200"
-                                >
-                                  Accept
-                                </button>
-                                <button
-                                  onClick={() => handleRejectReferral(referral.id)}
-                                  className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg transition-colors duration-200"
-                                >
-                                  Reject
-                                </button>
-                              </>
-                            )}
-                           
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+        {/* Tab Content */}
+        <div className="bg-white rounded-xl border border-slate-200">
+          {activeTab === 'received' && (
+            <div className="p-4">
+              <h2 className="text-base font-semibold text-slate-900 mb-3">Received referrals</h2>
+              <ContinuityTable
+                rows={visibleReceived}
+                role="receiving"
+                onOpen={(referral) => handlePatientNameClick(referral, "receiving")}
+                onAccept={handleAcceptReferral}
+                onReject={handleRejectReferral}
+              />
             </div>
           )}
 
           {activeTab === 'sent' && (
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-gray-900">Referrals Sent</h2>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-gray-50 border-b">
-                      <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient</th>
-                      <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Condition</th>
-                      <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Referred To</th>
-                      <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                      <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                      {/* <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th> */}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {referralsSent.map((referral) => (
-                      <tr key={referral.id} className="hover:bg-gray-50 transition-colors duration-150">
-                        <td className="py-4 px-4">
-                          <button
-                            onClick={() => handlePatientNameClick(referral)}
-                            className="text-blue-600 hover:text-blue-800 font-medium text-left"
-                          >
-                            {referral.patientName}
-                          </button>
-                          <p className="text-sm text-gray-500">{referral.patientId}</p>
-                        </td>
-                        <td className="py-4 px-4">
-                          <span className="text-red-600 font-medium">{referral.condition}</span>
-                        </td>
-                        <td className="py-4 px-4">
-                          <div>
-                            <span className="font-medium text-gray-900">{referral.referredTo}</span>
-                            <p className="text-sm text-gray-500">{referral.department}</p>
-                          </div>
-                        </td>
-                        <td className="py-4 px-4 text-gray-600">{referral.dateReferred}</td>
-                        <td className="py-4 px-4">
-                          {getStatusBadge(referral.status, referral.priority)}
-                        </td>
-                        {/* <td className="py-4 px-4">
-                          <div className="flex space-x-2">
-                            <button
-                              onClick={() => handleViewPatientDetails(referral.patientId, 'sent')}
-                              className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors duration-200"
-                            >
-                              View
-                            </button>
-                            <button
-                              onClick={() => handleViewPatientDetails(referral.patientId, 'sent')}
-                              className="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded-lg transition-colors duration-200"
-                            >
-                              Track
-                            </button>
-                          </div>
-                        </td> */}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+            <div className="p-4">
+              <h2 className="text-base font-semibold text-slate-900 mb-3">Referrals sent</h2>
+              <ContinuityTable
+                rows={visibleSent}
+                role="referring"
+                onOpen={(referral) => handlePatientNameClick(referral, "referring")}
+                onAccept={handleAcceptReferral}
+                onReject={handleRejectReferral}
+              />
             </div>
           )}
 
@@ -1452,10 +1305,6 @@ const ReferralsPage = () => {
                           <span className="text-gray-600">Experience:</span>
                           <span className="font-medium">{doctor.experience}</span>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Consultation:</span>
-                          <span className="font-medium">${doctor.op_consultation_fee}</span>
-                        </div>
                         {doctor.rating && (
                           <div className="flex justify-between">
                             <span className="text-gray-600">Rating:</span>
@@ -1519,6 +1368,17 @@ const ReferralsPage = () => {
         <PatientDetailsModal
           patient={selectedPatientDetails}
           onClose={() => setShowPatientDetailsModal(false)}
+        />
+      )}
+
+      {openRecord && (
+        <ReferralCaseView
+          caseRecord={openRecord}
+          viewerRole={openCase.role}
+          onClose={() => setOpenCase(null)}
+          onAddUpdate={(update) => addProgressUpdate(openRecord.id, update)}
+          onDischarge={(discharge, author) => dischargeReferralCase(openRecord.id, discharge, author)}
+          onReopen={(update) => reopenReferralCase(openRecord.id, update)}
         />
       )}
 

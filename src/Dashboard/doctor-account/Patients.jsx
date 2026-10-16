@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { BASE_URL } from '../../config';
+import { VisitHistoryList, formatVisitDate } from './VisitHistory';
 
 const PatientsPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -13,131 +15,58 @@ const PatientsPage = () => {
   const [showMessageModal, setShowMessageModal] = useState(false); // NEW STATE for message modal
   const [messageContent, setMessageContent] = useState(''); // NEW STATE for message content
   const [messageRecipient, setMessageRecipient] = useState(''); // NEW STATE for recipient
-  const [patients, setPatients] = useState([
-    // ... existing patients data remains exactly the same ...
-    {
-      id: 1,
-      name: 'John Smith',
-      email: 'john.smith@email.com',
-      phone: 1234567890,
-      photo: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face',
-      age: 45,
-      gender: 'male',
-      bloodType: 'A+',
-      role: 'patient',
-      bp: { value: '140/90', known: true },
-      diabetic: { value: 'no', known: true },
-      hyperthyroidism: { value: 'no', known: true },
-      appointments: ['app1', 'app2'],
-      lastAppointment: '2024-01-15',
-      nextAppointment: '2024-02-01',
-      status: 'Active',
-      condition: 'Hypertension'
-    },
-    {
-      id: 2,
-      name: 'Maria Garcia',
-      email: 'maria.garcia@email.com',
-      phone: 2345678901,
-      photo: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face',
-      age: 32,
-      gender: 'female',
-      bloodType: 'O-',
-      role: 'patient',
-      bp: { value: '110/70', known: true },
-      diabetic: { value: 'yes', known: true },
-      hyperthyroidism: { value: 'no', known: true },
-      appointments: ['app3'],
-      lastAppointment: '2024-01-14',
-      nextAppointment: '2024-02-05',
-      status: 'Active',
-      condition: 'Diabetes'
-    },
-    {
-      id: 3,
-      name: 'Robert Johnson',
-      email: 'robert.j@email.com',
-      phone: 3456789012,
-      photo: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
-      age: 58,
-      gender: 'male',
-      bloodType: 'B+',
-      role: 'patient',
-      bp: { value: '', known: false },
-      diabetic: { value: 'yes', known: true },
-      hyperthyroidism: { value: 'yes', known: true },
-      appointments: ['app4', 'app5', 'app6'],
-      lastAppointment: '2024-01-13',
-      nextAppointment: '2024-01-28',
-      status: 'Follow-up',
-      condition: 'Asthma'
-    },
-    {
-      id: 4,
-      name: 'Sarah Wilson',
-      email: 'sarah.wilson@email.com',
-      phone: 4567890123,
-      photo: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face',
-      age: 67,
-      gender: 'female',
-      bloodType: 'AB+',
-      role: 'patient',
-      bp: { value: '120/80', known: true },
-      diabetic: { value: 'no', known: true },
-      hyperthyroidism: { value: 'no', known: true },
-      appointments: ['app7'],
-      lastAppointment: '2024-01-12',
-      nextAppointment: '2024-02-10',
-      status: 'Active',
-      condition: 'Arthritis'
-    },
-    {
-      id: 5,
-      name: 'Michael Brown',
-      email: 'michael.b@email.com',
-      phone: 5678901234,
-      photo: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop&crop=face',
-      age: 29,
-      gender: 'male',
-      bloodType: 'A-',
-      role: 'patient',
-      bp: { value: '', known: false },
-      diabetic: { value: '', known: false },
-      hyperthyroidism: { value: '', known: false },
-      appointments: ['app8'],
-      lastAppointment: '2024-01-10',
-      nextAppointment: '2024-02-15',
-      status: 'New',
-      condition: 'Migraine'
-    },
-    {
-      id: 6,
-      name: 'Emily Davis',
-      email: 'emily.davis@email.com',
-      phone: 6789012345,
-      photo: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&h=150&fit=crop&crop=face',
-      age: 41,
-      gender: 'female',
-      bloodType: 'O+',
-      role: 'patient',
-      bp: { value: '130/85', known: true },
-      diabetic: { value: 'no', known: true },
-      hyperthyroidism: { value: 'yes', known: true },
-      appointments: ['app9', 'app10'],
-      lastAppointment: '2024-01-08',
-      nextAppointment: '2024-02-20',
-      status: 'Active',
-      condition: 'Hypertension'
-    }
-  ]);
+  const [patients, setPatients] = useState([]);
+  const [patientsLoading, setPatientsLoading] = useState(true);
+  const [patientsError, setPatientsError] = useState("");
 
-  // ... ALL EXISTING FUNCTIONS REMAIN EXACTLY THE SAME ...
+  useEffect(() => {
+    const loadPatients = async () => {
+      try {
+        setPatientsLoading(true);
+        setPatientsError("");
+        const response = await fetch(`${BASE_URL}/doctors/my-patients`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+          throw new Error(data.message || "Failed to load patients");
+        }
+        const mapped = (data.data || []).map((patient) => ({
+          id: patient._id,
+          name: patient.name || "Patient",
+          email: patient.email || "",
+          phone: patient.phone || "",
+          photo: patient.photo || "",
+          age: patient.age ?? "",
+          gender: patient.gender || "",
+          bloodType: patient.bloodType || "—",
+          bp: patient.bp || { value: "", known: false },
+          diabetic: patient.diabetic || { value: "", known: false },
+          hyperthyroidism: patient.hyperthyroidism || { value: "", known: false },
+          appointments: patient.visits || [],
+          lastAppointment: patient.lastVisit ? formatVisitDate(patient.lastVisit) : "",
+          nextAppointment: patient.nextAppointment ? formatVisitDate(patient.nextAppointment) : "",
+          status: patient.status || "New",
+          condition: patient.lastDiagnosis || "Not recorded",
+          lastMedicines: patient.lastMedicines || [],
+          visits: patient.visits || [],
+        }));
+        setPatients(mapped);
+      } catch (err) {
+        setPatientsError(err.message || "Failed to load patients");
+      } finally {
+        setPatientsLoading(false);
+      }
+    };
+
+    loadPatients();
+  }, []);
 
   // Filter patients based on search and status
   const filteredPatients = patients.filter(patient => {
-    const matchesSearch = patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         patient.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         patient.condition.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (patient.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (patient.email || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (patient.condition || "").toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === 'all' || patient.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
@@ -218,7 +147,7 @@ const PatientsPage = () => {
   // NEW FUNCTIONALITY - Add new patient
   const handleAddPatient = (newPatientData) => {
     const newPatient = {
-      id: Math.max(...patients.map(p => p.id)) + 1,
+      id: patients.length ? Math.max(...patients.map(p => Number(p.id) || 0)) + 1 : 1,
       ...newPatientData,
       appointments: [],
       lastAppointment: '',
@@ -603,7 +532,7 @@ const PatientsPage = () => {
       e.preventDefault();
       onSave(formData);
       if (reports.length > 0) {
-        handleFileUpload(Math.max(...patients.map(p => p.id)) + 1, reports);
+        handleFileUpload(patients.length ? Math.max(...patients.map(p => Number(p.id) || 0)) + 1 : 1, reports);
       }
     };
 
@@ -791,14 +720,24 @@ const PatientsPage = () => {
 
     const getHealthStatus = () => {
       const conditions = [];
-      if (patient.diabetic.value === 'yes') conditions.push('Diabetic');
-      if (patient.hyperthyroidism.value === 'yes') conditions.push('Hyperthyroid');
-      if (patient.bp.value && parseInt(patient.bp.value.split('/')[0]) > 130) conditions.push('Hypertensive');
+      if (patient.diabetic?.value === 'yes') conditions.push('Diabetic');
+      if (patient.hyperthyroidism?.value === 'yes') conditions.push('Hyperthyroid');
+      if (patient.bp?.value && parseInt(String(patient.bp.value).split('/')[0], 10) > 130) conditions.push('Hypertensive');
       
       return conditions.length > 0 ? conditions.join(', ') : 'Good Health';
     };
 
     const patientReportsList = patientReports[patient.id] || [];
+    const visitReportFiles = (patient.visits || []).flatMap((visit) =>
+      (visit.reports || []).flatMap((group) =>
+        (group.files || []).map((url, index) => ({
+          key: `${visit._id}-${group.name}-${index}`,
+          name: group.name,
+          url,
+          date: formatVisitDate(visit.appointmentDate),
+        }))
+      )
+    );
 
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -878,19 +817,19 @@ const PatientsPage = () => {
                 <div>
                   <h4 className="font-medium text-gray-900 mb-2">Blood Pressure</h4>
                   <p className="text-gray-600">
-                    {patient.bp.known ? patient.bp.value || 'Normal' : 'Not Known'}
+                    {patient.bp?.known ? patient.bp.value || 'Normal' : 'Not Known'}
                   </p>
                 </div>
                 <div>
                   <h4 className="font-medium text-gray-900 mb-2">Diabetic Status</h4>
                   <p className="text-gray-600">
-                    {patient.diabetic.known ? patient.diabetic.value || 'No' : 'Not Known'}
+                    {patient.diabetic?.known ? patient.diabetic.value || 'No' : 'Not Known'}
                   </p>
                 </div>
                 <div>
                   <h4 className="font-medium text-gray-900 mb-2">Hyperthyroidism</h4>
                   <p className="text-gray-600">
-                    {patient.hyperthyroidism.known ? patient.hyperthyroidism.value || 'No' : 'Not Known'}
+                    {patient.hyperthyroidism?.known ? patient.hyperthyroidism.value || 'No' : 'Not Known'}
                   </p>
                 </div>
               </div>
@@ -898,21 +837,26 @@ const PatientsPage = () => {
 
             {/* Appointment History */}
             <div className="bg-gray-50 rounded-lg p-4">
-              <h3 className="font-semibold text-gray-900 mb-3">Appointment History</h3>
-              <div className="space-y-2">
+              <h3 className="font-semibold text-gray-900 mb-3">Visit history</h3>
+              <div className="space-y-2 mb-3">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Last Appointment:</span>
+                  <span className="text-gray-600">Last visit:</span>
                   <span className="font-medium">{patient.lastAppointment || 'No previous appointments'}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Next Appointment:</span>
+                  <span className="text-gray-600">Next appointment:</span>
                   <span className="font-medium text-green-600">{patient.nextAppointment || 'Not scheduled'}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Total Appointments:</span>
-                  <span className="font-medium">{patient.appointments.length}</span>
+                  <span className="text-gray-600">Total visits:</span>
+                  <span className="font-medium">{(patient.visits || patient.appointments || []).length}</span>
                 </div>
               </div>
+              {(patient.visits || []).length > 0 ? (
+                <VisitHistoryList visits={patient.visits} />
+              ) : (
+                <p className="text-sm text-gray-500">No consultation history recorded for this patient.</p>
+              )}
             </div>
 
             {/* Medical Reports Section */}
@@ -936,6 +880,20 @@ const PatientsPage = () => {
                       <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">
                         Download
                       </button>
+                    </div>
+                  ))}
+                </div>
+              ) : visitReportFiles.length > 0 ? (
+                <div className="space-y-2">
+                  {visitReportFiles.map((report) => (
+                    <div key={report.key} className="flex items-center justify-between p-3 bg-white rounded-lg border">
+                      <div>
+                        <p className="font-medium text-gray-900">{report.name}</p>
+                        <p className="text-sm text-gray-500">{report.date}</p>
+                      </div>
+                      <a href={report.url} target="_blank" rel="noreferrer" className="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                        View
+                      </a>
                     </div>
                   ))}
                 </div>
@@ -1038,11 +996,17 @@ const PatientsPage = () => {
             {/* Patient Header */}
             <div className="p-6 border-b">
               <div className="flex items-center space-x-4">
-                <img
-                  src={patient.photo}
-                  alt={patient.name}
-                  className="w-16 h-16 rounded-full object-cover"
-                />
+                {patient.photo ? (
+                  <img
+                    src={patient.photo}
+                    alt={patient.name}
+                    className="w-16 h-16 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-16 h-16 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center text-lg font-semibold">
+                    {(patient.name || "?").charAt(0).toUpperCase()}
+                  </div>
+                )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-semibold text-gray-900 truncate">{patient.name}</h3>
@@ -1059,9 +1023,15 @@ const PatientsPage = () => {
 
             {/* Patient Details */}
             <div className="p-6 space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">Condition:</span>
-                <span className="font-medium text-blue-600">{patient.condition}</span>
+              <div className="flex justify-between items-center gap-3">
+                <span className="text-gray-600 shrink-0">Last diagnosis:</span>
+                <span className="font-medium text-blue-600 text-right truncate">{patient.condition}</span>
+              </div>
+              <div className="flex justify-between items-start gap-3">
+                <span className="text-gray-600 shrink-0">Last medicines:</span>
+                <span className="font-medium text-right text-sm">
+                  {patient.lastMedicines?.length ? patient.lastMedicines.join(", ") : "None recorded"}
+                </span>
               </div>
               
               <div className="flex justify-between items-center">
@@ -1079,16 +1049,16 @@ const PatientsPage = () => {
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Health Indicators:</span>
                   <div className="flex space-x-2">
-                    {patient.bp.known && (
+                    {patient.bp?.known && patient.bp.value && (
                       <span className="bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs">BP</span>
                     )}
-                    {patient.diabetic.known && patient.diabetic.value === 'yes' && (
+                    {patient.diabetic?.known && patient.diabetic.value === 'yes' && (
                       <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs">Diabetes</span>
                     )}
-                    {patient.hyperthyroidism.known && patient.hyperthyroidism.value === 'yes' && (
+                    {patient.hyperthyroidism?.known && patient.hyperthyroidism.value === 'yes' && (
                       <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-xs">Thyroid</span>
                     )}
-                    {!patient.bp.known && !patient.diabetic.known && !patient.hyperthyroidism.known && (
+                    {!patient.bp?.value && patient.diabetic?.value !== 'yes' && patient.hyperthyroidism?.value !== 'yes' && (
                       <span className="text-gray-500 text-xs">No data</span>
                     )}
                   </div>
@@ -1117,12 +1087,18 @@ const PatientsPage = () => {
         ))}
       </div>
 
+      {patientsLoading && (
+        <div className="text-center py-12 text-gray-500">Loading patients...</div>
+      )}
+      {patientsError && !patientsLoading && (
+        <div className="text-center py-12 text-red-600">{patientsError}</div>
+      )}
+
       {/* No Results Message */}
-      {filteredPatients.length === 0 && (
+      {!patientsLoading && !patientsError && filteredPatients.length === 0 && (
         <div className="text-center py-12">
-          <div className="text-6xl mb-4">🔍</div>
           <h3 className="text-xl font-semibold text-gray-900 mb-2">No patients found</h3>
-          <p className="text-gray-600">Try adjusting your search or filter criteria</p>
+          <p className="text-gray-600">Patients appear here after they book a consultation with you.</p>
         </div>
       )}
 

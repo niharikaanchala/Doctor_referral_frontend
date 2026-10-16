@@ -127,7 +127,7 @@ const Dashboard = () => {
               <div className="mt-8">
                 
                 {tab === "dashboard" && (
-  role === "doctor" ? <DoctorDashboard /> : <Dashboardre />
+  role === "doctor" ? <DoctorDashboard appointments={data.appointments || []} /> : <Dashboardre />
 )}
 
                 {tab === "appointments" && (

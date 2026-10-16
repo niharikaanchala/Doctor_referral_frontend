@@ -1,15 +1,46 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 
-const DoctorDashboard = () => {
-  // Mock data for stat cards
+const isOnDay = (value, dayStart) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return false;
+  const nextDay = new Date(dayStart);
+  nextDay.setDate(nextDay.getDate() + 1);
+  return date >= dayStart && date < nextDay;
+};
+
+const DoctorDashboard = ({ appointments = [] }) => {
+  const { totalAppointments, appointmentsYesterday, totalPatients, patientsYesterday } = useMemo(() => {
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const startOfYesterday = new Date(startOfToday);
+    startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+
+    const firstSeen = new Map();
+    appointments.forEach((item) => {
+      if (item.status === 'cancelled') return;
+      const patientId = item.user?._id;
+      if (!patientId) return;
+      const created = new Date(item.createdAt || 0).getTime();
+      const current = firstSeen.get(String(patientId));
+      if (current === undefined || created < current) {
+        firstSeen.set(String(patientId), created);
+      }
+    });
+
+    return {
+      totalAppointments: appointments.length,
+      appointmentsYesterday: appointments.filter((item) => isOnDay(item.createdAt, startOfYesterday)).length,
+      totalPatients: firstSeen.size,
+      patientsYesterday: [...firstSeen.values()].filter((time) => isOnDay(time, startOfYesterday)).length,
+    };
+  }, [appointments]);
+
   const stats = [
-    // { title: 'Appointments Today', value: '12', change: '+2', icon: '📅', color: 'blue' },
-    { title: 'Referrals Sent', value: '8', change: '+1', icon: '👥', color: 'green' }, 
-    { title: 'Referrals Received', value: '10', change: '+1', icon: '👥', color: 'green' }, 
-    // { title: 'Patients This Week', value: '34', change: '+5', icon: '👨‍⚕️', color: 'purple' },
-    { title: 'Total Payable', value: '$2,450', change: '+$120', icon: '💰', color: 'orange' },
-    { title: 'Total Receivable', value: '$3,850', change: '+$210', icon: '💳', color: 'teal' },
+    { title: 'Referrals Sent', value: '8', change: '+1', icon: '👥', color: 'green' },
+    { title: 'Referrals Received', value: '10', change: '+1', icon: '👥', color: 'green' },
+    { title: 'Total Appointments', value: String(totalAppointments), change: `+${appointmentsYesterday}`, icon: '📅', color: 'blue' },
+    { title: 'Total Patients', value: String(totalPatients), change: `+${patientsYesterday}`, icon: '👤', color: 'purple' },
   ];
 
   // Mock data for pie chart

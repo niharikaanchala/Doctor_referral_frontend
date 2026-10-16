@@ -1,6 +1,120 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
-const AnalyzeAi = ({ booking, aiAnalysis, onClose }) => {
+const LOADING_STEPS = [
+    { title: "Reading the reports", detail: "Going through each uploaded file" },
+    { title: "Checking key indicators", detail: "Looking at the values that stand out" },
+    { title: "Matching the visit notes", detail: "Connecting symptoms with the reports" },
+    { title: "Writing the summary", detail: "Preparing something you can review" },
+];
+
+function AnalysisLoading({ patientName, startedAt, onRetry }) {
+    const [step, setStep] = useState(0);
+
+    useEffect(() => {
+        const id = setInterval(() => {
+            setStep((current) => (current + 1) % LOADING_STEPS.length);
+        }, 2400);
+        return () => clearInterval(id);
+    }, []);
+
+    const slow = startedAt && Date.now() - new Date(startedAt).getTime() > 4 * 60 * 1000;
+
+    return (
+        <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-gradient-to-b from-violet-50 via-white to-indigo-50 px-6">
+            <style>{`
+                @keyframes aiScan {
+                    0% { transform: translateY(0); opacity: 0; }
+                    12% { opacity: 1; }
+                    88% { opacity: 1; }
+                    100% { transform: translateY(132px); opacity: 0; }
+                }
+                @keyframes aiFloat {
+                    0%, 100% { transform: translateY(0); }
+                    50% { transform: translateY(-8px); }
+                }
+            `}</style>
+            <div className="pointer-events-none absolute -left-16 top-8 h-48 w-48 rounded-full bg-violet-300/30 blur-3xl" />
+            <div className="pointer-events-none absolute -right-10 bottom-4 h-56 w-56 rounded-full bg-indigo-300/30 blur-3xl" />
+
+            <div className="relative w-full max-w-md text-center">
+                <div className="relative mx-auto mb-8 h-44 w-36" style={{ animation: "aiFloat 3.2s ease-in-out infinite" }}>
+                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-600 opacity-20 blur-xl" />
+                    <div className="relative h-full overflow-hidden rounded-2xl border border-white bg-white shadow-xl shadow-violet-200/80">
+                        <div className="flex items-center gap-2 border-b border-violet-100 px-3 py-2.5">
+                            <span className="h-2 w-2 rounded-full bg-violet-400" />
+                            <span className="h-2 w-10 rounded-full bg-violet-100" />
+                        </div>
+                        <div className="space-y-2 px-3 py-3">
+                            <span className="block h-2 rounded-full bg-slate-100" />
+                            <span className="block h-2 w-4/5 rounded-full bg-slate-100" />
+                            <span className="block h-2 w-3/5 rounded-full bg-violet-100" />
+                            <span className="block h-2 rounded-full bg-slate-100" />
+                            <span className="block h-2 w-2/3 rounded-full bg-slate-100" />
+                            <span className="mt-3 block h-8 rounded-lg bg-violet-50" />
+                        </div>
+                        <div
+                            className="absolute left-2 right-2 top-10 h-8 rounded-md bg-gradient-to-b from-transparent via-violet-400/50 to-transparent"
+                            style={{ animation: "aiScan 2.2s ease-in-out infinite" }}
+                        />
+                    </div>
+                </div>
+
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-violet-500">AI analysis</p>
+                <h3 className="mt-2 text-2xl font-semibold text-slate-900">Reading {patientName}&apos;s reports</h3>
+                <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-slate-500">
+                    This usually takes a minute. You can close this and keep reading the chart. The result will be here when it is ready.
+                </p>
+
+                <div className="mx-auto mt-6 max-w-sm rounded-2xl border border-violet-100 bg-white/90 px-4 py-3 text-left shadow-sm">
+                    <p className="text-sm font-semibold text-violet-800">{LOADING_STEPS[step].title}</p>
+                    <p className="mt-0.5 text-xs text-slate-500">{LOADING_STEPS[step].detail}</p>
+                </div>
+
+                <div className="mt-4 flex items-center justify-center gap-1.5">
+                    {LOADING_STEPS.map((item, index) => (
+                        <span
+                            key={item.title}
+                            className={`h-1.5 rounded-full transition-all duration-300 ${index === step ? "w-6 bg-violet-600" : "w-1.5 bg-violet-200"}`}
+                        />
+                    ))}
+                </div>
+
+                {slow && (
+                    <button type="button" onClick={onRetry} className="mt-5 text-sm font-semibold text-violet-700 hover:text-violet-900">
+                        Taking longer than usual. Try again
+                    </button>
+                )}
+            </div>
+        </div>
+    );
+}
+
+function AnalysisFailed({ message, onRetry }) {
+    return (
+        <div className="flex flex-1 items-center justify-center bg-gradient-to-b from-rose-50 via-white to-violet-50 px-6">
+            <div className="w-full max-w-md text-center">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-lg shadow-rose-100 ring-1 ring-rose-100">
+                    <svg className="h-8 w-8 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M12 9v4m0 4h.01M10.29 3.86l-7.4 12.82A2 2 0 004.62 20h14.76a2 2 0 001.73-3.32l-7.4-12.82a2 2 0 00-3.42 0z" />
+                    </svg>
+                </div>
+                <h3 className="mt-6 text-2xl font-semibold text-slate-900">Analysis didn&apos;t finish</h3>
+                <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-slate-500">
+                    {message || "Something interrupted the analysis. The reports are still here, and you can run it again."}
+                </p>
+                <button
+                    type="button"
+                    onClick={onRetry}
+                    className="mt-6 inline-flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-violet-200 hover:bg-violet-700"
+                >
+                    Try again
+                </button>
+            </div>
+        </div>
+    );
+}
+
+const AnalyzeAi = ({ booking, aiAnalysis, status = "ready", onClose, onRetry }) => {
     const [activeTab, setActiveTab] = useState("analysis"); // 'analysis' or 'chat'
     const [chatMessages, setChatMessages] = useState([]);
     const [newMessage, setNewMessage] = useState("");
@@ -46,6 +160,10 @@ const AnalyzeAi = ({ booking, aiAnalysis, onClose }) => {
         ]);
     };
 
+    const patientName = booking?.user?.name || "this patient";
+    const waiting = status === "processing";
+    const failed = status === "failed";
+
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl h-[95vh] flex flex-col overflow-hidden">
@@ -66,7 +184,7 @@ const AnalyzeAi = ({ booking, aiAnalysis, onClose }) => {
                                     d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
                                 ></path>
                             </svg>
-                            {activeTab === "analysis" ? "AI Analysis Report" : "Chat with AI"}
+                            {waiting || failed ? "AI Analysis" : activeTab === "analysis" ? "AI Analysis Report" : "Chat with AI"}
                         </h2>
                         <button
                             onClick={onClose}
@@ -88,12 +206,22 @@ const AnalyzeAi = ({ booking, aiAnalysis, onClose }) => {
                         </button>
                     </div>
                     <p className="text-sm text-purple-100 mt-1">
-                        {activeTab === "analysis"
-                            ? `Analyzing reports for ${booking.user.name}`
-                            : `Discussing reports with AI`}
+                        {waiting
+                            ? `Preparing the analysis for ${patientName}`
+                            : failed
+                                ? "The analysis didn't finish"
+                                : activeTab === "analysis"
+                                    ? `Analysis for ${patientName}`
+                                    : "Discussing reports with AI"}
                     </p>
                 </div>
 
+                {waiting ? (
+                    <AnalysisLoading patientName={patientName} startedAt={booking?.aiStartedAt} onRetry={onRetry} />
+                ) : failed ? (
+                    <AnalysisFailed message={booking?.aiError} onRetry={onRetry} />
+                ) : (
+                <>
                 {/* Tab Navigation */}
                 <div className="border-b border-gray-200">
                     <nav className="flex -mb-px">
@@ -807,6 +935,8 @@ const AnalyzeAi = ({ booking, aiAnalysis, onClose }) => {
                         )}
                     </div>
                 </div>
+                </>
+                )}
             </div>
         </div>
     );

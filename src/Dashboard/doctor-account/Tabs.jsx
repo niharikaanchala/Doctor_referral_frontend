@@ -62,7 +62,7 @@ const Tabs = ({ tab, setTab, newBookingsCount }) => {
         >
           Patients
         </button>
-        <button
+        {/* <button
           onClick={() => setTab("payment")}
           className={`${tab === "payment"
             ? "bg-indigo-100 text-primaryColor"
@@ -70,7 +70,7 @@ const Tabs = ({ tab, setTab, newBookingsCount }) => {
             } w-full btn mt-0 rounded-md`}
         >
           Payment
-        </button>
+        </button> */}
         <button
           onClick={() => setTab("receptionist")}
           className={`${
